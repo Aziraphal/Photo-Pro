@@ -265,6 +265,23 @@ const photoEditingTips = {
 // Remplacer la fonction de simulation par une vraie intégration avec Google Cloud Vision API
 const analyzeImageWithGoogleVision = async (imageDataUrl, editState) => {
   try {
+    // Vérifier si la limite d'utilisation de l'API est atteinte
+    const today = new Date().toISOString().split('T')[0]; // Format YYYY-MM-DD
+    const apiUsageKey = `vision_api_usage_${today}`;
+    const apiUsage = parseInt(localStorage.getItem(apiUsageKey) || '0');
+    
+    // Limite fixée à 950 utilisations par jour
+    const API_DAILY_LIMIT = 950;
+    
+    if (apiUsage >= API_DAILY_LIMIT) {
+      console.warn("Limite quotidienne d'utilisation de l'API Vision atteinte");
+      return [{
+        id: 'api-limit',
+        message: "La limite quotidienne d'analyse d'image a été atteinte. Les conseils IA ne sont pas disponibles pour le moment.",
+        priority: 10
+      }];
+    }
+    
     // Extraction de la partie base64 de l'URL data
     const base64Image = imageDataUrl.split(',')[1];
 
@@ -305,6 +322,9 @@ const analyzeImageWithGoogleVision = async (imageDataUrl, editState) => {
         'Content-Type': 'application/json'
       }
     });
+    
+    // Incrémenter et sauvegarder le compteur d'utilisation
+    localStorage.setItem(apiUsageKey, (apiUsage + 1).toString());
     
     // Traitement de la réponse
     const data = await response.json();
@@ -457,6 +477,24 @@ const AIAssistant = ({ currentState, lastAction, isVisible, onClose, canvasRef }
   const [currentTip, setCurrentTip] = useState(null);
   const [isLoadingAITip, setIsLoadingAITip] = useState(false);
   const [aiTips, setAiTips] = useState([]);
+  const [apiUsageCount, setApiUsageCount] = useState(0);
+  const [apiDailyLimit] = useState(950);
+  
+  // Récupérer le compteur d'utilisation
+  useEffect(() => {
+    const today = new Date().toISOString().split('T')[0];
+    const apiUsageKey = `vision_api_usage_${today}`;
+    const usage = parseInt(localStorage.getItem(apiUsageKey) || '0');
+    setApiUsageCount(usage);
+    
+    // Mettre à jour le compteur toutes les minutes
+    const interval = setInterval(() => {
+      const currentUsage = parseInt(localStorage.getItem(apiUsageKey) || '0');
+      setApiUsageCount(currentUsage);
+    }, 60000);
+    
+    return () => clearInterval(interval);
+  }, []);
   
   // Récupérer les conseils de l'IA
   useEffect(() => {
@@ -557,10 +595,15 @@ const AIAssistant = ({ currentState, lastAction, isVisible, onClose, canvasRef }
   return (
     <Card sx={{ position: 'relative', mt: 2, mb: 2, backgroundColor: '#f0f7ff', borderLeft: '4px solid #3f51b5' }}>
       <CardContent sx={{ pr: 6 }}>
-        <Box sx={{ display: 'flex', alignItems: 'center' }}>
-          <Lightbulb color="primary" sx={{ mr: 1 }} />
-          <Typography variant="subtitle1" component="div" fontWeight="medium">
-            {isLoadingAITip ? "Analyse Google Vision en cours..." : "Conseil IA pour votre photo"}
+        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <Box sx={{ display: 'flex', alignItems: 'center' }}>
+            <Lightbulb color="primary" sx={{ mr: 1 }} />
+            <Typography variant="subtitle1" component="div" fontWeight="medium">
+              {isLoadingAITip ? "Analyse Google Vision en cours..." : "Conseil IA pour votre photo"}
+            </Typography>
+          </Box>
+          <Typography variant="caption" sx={{ mr: 2 }}>
+            Analyses aujourd'hui: {apiUsageCount}/{apiDailyLimit}
           </Typography>
           <IconButton
             size="small"
