@@ -269,7 +269,7 @@ const analyzeImageWithGoogleVision = async (imageDataUrl, editState) => {
     const base64Image = imageDataUrl.split(',')[1];
 
     // API Google Cloud Vision
-    const API_KEY = 'AIzaSyCR8S2ak1qk8kwUEAZacnNwrNQtjJpLcsY';
+    const API_KEY = process.env.REACT_APP_GOOGLE_VISION_API_KEY;
     const API_URL = `https://vision.googleapis.com/v1/images:annotate?key=${API_KEY}`;
     
     // Préparation de la requête
